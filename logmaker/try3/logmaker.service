@@ -1,0 +1,17 @@
+[Unit]
+Description = Just a daemon to make some logs
+After = network.target
+
+[Service]
+Type = simple
+ExecStart = /usr/bin/python3 /home/work/logrotate/logmaker/logmaker.py
+Restart = on-abort
+WorkingDirectory=/home/work/logrotate/logmaker
+
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=logmaker
+
+
+[Install]
+WantedBy = multi-user.target

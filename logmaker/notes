@@ -1,0 +1,129 @@
+notes
+
+sudo vim /etc/systemd/journald.conf
+
+#RateLimitInterval=30s
+RateLimitInterval=0
+#RateLimitBurst=1000
+RateLimitBurst=0
+
+
+sudo systemctl restart systemd-journald
+
+sudo vim /etc/rsyslog.conf
+---------
+$ModLoad imuxsock # provides support for local system logging (e.g. via logger command)
+$ModLoad imjournal # provides access to the systemd journal
+#$ModLoad imklog # reads kernel messages (the same are read from journald)
+#$ModLoad immark  # provides --MARK-- message capability
+$ImjournalRateLimitInterval 0
+
+--------
+#Disablerate-limitingof log entries
+$SystemLogRateLimitInterval 0
+$SystemLogRateLimitBurst 0
+
+#### RULES ####
+--------
+
+
+sudo cp logmaker.service /etc/systemd/system/
+
+sudo systemctl daemon-reload
+
+sudo cp logmaker.conf /etc/rsyslog.d/
+
+sudo systemctl restart rsyslog
+
+
+########################################################
+try1
+journald:
+	storage in memory, compressed
+	rate limiting turned off
+rsyslogd:
+	going to rsyslog via imjournal
+	rate limiting turned off imjounral and global
+
+1000line/s
+45-55% systemd-journald
+13-16% rsyslogd
+
+
+Try2 
+journald:
+	storage in memory, NOT compressed
+	rate limiting turned off
+rsyslogd:
+	going to rsyslog via imjournal
+	rate limiting turned off imjounral and global
+
+1000line/s
+45-55% systemd-journald
+14-16% rsyslogd
+
+
+
+Try3
+journald:
+	storage in memory, compressed
+	rate limiting turned off
+rsyslogd:
+	going to rsyslog via socket
+	rate limiting turned off global
+
+1000line/s
+45-55% systemd-journald
+6-10%% rsyslogd
+
+
+Try4
+journald:
+	no storage
+	rate limiting turned off
+rsyslogd:
+	going to rsyslog via socket
+	rate limiting turned off global
+
+80000line/s
+87% systemd-journald
+66% rsyslogd
+(python 50%)
+on 2 cpus !! laptop maxed out
+around 100klines potential for python in this scenario
+
+straight output with pipe:
+thats a potential max rate of about 250k lines/s
+
+
+Try5
+journald:
+	storage in memory, compressed
+	rate limiting turned on (5s 10k)
+rsyslogd:
+	going to rsyslog via socket
+	rate limiting turned off global
+
+10kl/s
+40% journald
+<10% rsyslogd
+dropped stuff in journald, but also when checking the log from rsyslog. 
+But different in journald log and real log, so journald filter is after forward rsyslog.
+
+
+
+################################################################
+journald reports only in the imjournal file ? so rsyslog does not put message in messages if 
+journald is configured to forward to syslog
+
+Sep 30 21:14:34 bench.localdomain systemd-journal[14505]: Suppressed 49884 messages from /system.slice/logmaker.service
+Sep 30 21:14:39 bench.localdomain systemd-journal[14505]: Suppressed 49884 messages from /system.slice/logmaker.service
+Sep 30 21:14:44 bench.localdomain systemd-journal[14505]: Suppressed 49884 messages from /system.slice/logmaker.service
+Sep 30 21:14:49 bench.localdomain systemd-journal[14505]: Suppressed 49884 messages from /system.slice/logmaker.service
+Sep 30 21:14:50 bench.localdomain systemd-journal[14505]: Forwarding to syslog missed 3045 messages.
+Sep 30 21:14:54 bench.localdomain systemd-journal[14505]: Suppressed 49884 messages from /system.slice/logmaker.service
+Sep 30 21:14:59 bench.localdomain systemd-journal[14505]: Suppressed 49884 messages from /system.slice/logmaker.service
+Sep 30 21:15:05 bench.localdomain systemd-journal[14505]: Suppressed 49884 messages from /system.slice/logmaker.service
+
+
+
